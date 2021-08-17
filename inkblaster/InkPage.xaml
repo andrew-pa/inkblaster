@@ -13,24 +13,43 @@
                 IsEnabled="{x:Bind Frame.CanGoBack, Mode=OneWay}" VerticalAlignment="Top" Click="returnToMain"/>
         <StackPanel x:Name="menu" Canvas.ZIndex="1" Visibility="Visible" Canvas.Left="45" Canvas.Top="25">
             <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                <Button Margin="0,0,0,0" Click="closeMenu"> <SymbolIcon Symbol="Back"/> </Button>
-                <Button Margin="4,0,0,0" Click="paste"> <SymbolIcon Symbol="Paste"/> </Button>
-                <Button Margin="4,0,0,0" Click="extendCanvas"> <SymbolIcon Symbol="Add"/> </Button>
-                <Button Margin="4,0,0,0" Click="saveFileButton"> <SymbolIcon Symbol="Save"/> </Button>
+                <Button Margin="40,0,0,0" Click="closeMenu">
+                    <SymbolIcon Symbol="Back"/>
+                </Button>
+                <Button Margin="4,0,0,0" Click="paste">
+                    <SymbolIcon Symbol="Paste"/>
+                </Button>
+                <Button Margin="4,0,0,0" Click="extendCanvas">
+                    <SymbolIcon Symbol="Add"/>
+                </Button>
+                <Button Margin="4,0,0,0" Click="saveFileButton">
+                    <SymbolIcon Symbol="Save"/>
+                </Button>
             </StackPanel>
             <InkToolbar TargetInkCanvas="{x:Bind inkCanvas}" Loaded="InkToolbar_Loaded" x:Name="inkToolbar">
-                <InkToolbarCustomToolButton Click="activateSelectionMode">
+                <InkToolbarCustomToolButton x:Name="inkToolbarLassoTool" Click="activateSelectionMode">
                     <SymbolIcon Symbol="{x:Bind LassoIcon}"/>
                 </InkToolbarCustomToolButton>
             </InkToolbar>
         </StackPanel>
-        <StackPanel x:Name="selectionMenu" Canvas.ZIndex="1" Visibility="Visible" Orientation="Horizontal">
-                <Button Margin="0,0,0,0" Click="copySelection" RenderTransformOrigin="0.5,0.5"> <SymbolIcon Symbol="Copy"/> </Button>
-                <Button Margin="4,0,0,0" Click="cutSelection"> <SymbolIcon Symbol="Cut"/> </Button>
-                <Button Margin="4,0,0,0" Click="deleteSelection"> <SymbolIcon Symbol="Delete"/> </Button>
-        </StackPanel>
-        <ScrollViewer>
+        <ScrollViewer x:Name="inkScroller">
             <Grid>
+                <Canvas Canvas.ZIndex="1">
+                    <StackPanel x:Name="selectionMenu" Canvas.ZIndex="1" Visibility="Visible" Orientation="Horizontal">
+                        <Button Margin="0,0,0,0" Click="moveSelection">
+                            <SymbolIcon Symbol="{x:Bind MoveIcon}"/>
+                        </Button>
+                        <Button Margin="4,0,0,0" Click="copySelection">
+                            <SymbolIcon Symbol="Copy"/>
+                        </Button>
+                        <Button Margin="4,0,0,0" Click="cutSelection">
+                            <SymbolIcon Symbol="Cut"/>
+                        </Button>
+                        <Button Margin="4,0,0,0" Click="deleteSelection">
+                            <SymbolIcon Symbol="Delete"/>
+                        </Button>
+                    </StackPanel>
+                </Canvas>
                 <Canvas x:Name="selectionCanvas"/>
                 <InkCanvas x:Name="inkCanvas"  Width="{x:Bind topLevelCanvas.ActualWidth}" Height="2500"/>
             </Grid>

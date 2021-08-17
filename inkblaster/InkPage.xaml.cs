@@ -23,7 +23,7 @@ using Windows.UI;
 namespace inkblaster {
 
     public enum EditMode {
-        Inking, Selection
+        Inking, Selection, MoveSelection
     }
 
     public sealed partial class InkPage : Page {
@@ -33,6 +33,7 @@ namespace inkblaster {
 
         Polyline selectionLasso;
         Rect selectionBoundingBox = Rect.Empty;
+        Rectangle selectionBoundingRect;
 
         public InkPage() {
             this.InitializeComponent();
@@ -94,6 +95,7 @@ namespace inkblaster {
             }
             selectionLasso = null;
             selectionBoundingBox = Rect.Empty;
+            selectionBoundingRect = null;
             selectionMenu.Visibility = Visibility.Collapsed;
             currentMode = EditMode.Inking;
             inkToolbar.ActiveTool = inkToolbar.GetToolButton(InkToolbarTool.BallpointPen);
@@ -139,7 +141,30 @@ namespace inkblaster {
         private void UnprocessedInput_PointerMoved(InkUnprocessedInput sender, Windows.UI.Core.PointerEventArgs args) {
             if (currentMode == EditMode.Selection) {
                 selectionLasso.Points.Add(args.CurrentPoint.RawPosition);
+            } else if(currentMode == EditMode.MoveSelection) {
+                Canvas.SetLeft(selectionBoundingRect, args.CurrentPoint.RawPosition.X);
+                Canvas.SetTop(selectionBoundingRect, args.CurrentPoint.RawPosition.Y);
+            } else if(currentMode == EditMode.Inking && args.CurrentPoint.Properties.IsBarrelButtonPressed == true) {
+                menu.Visibility = Visibility.Collapsed;
+                currentMode = EditMode.Selection;
+                inkToolbar.ActiveTool = inkToolbarLassoTool;
+                selectionLasso = new Polyline() {
+                    Stroke = new SolidColorBrush(Colors.Blue),
+                    StrokeThickness = 2,
+                    StrokeDashArray = new DoubleCollection() { 5, 2 }
+                };
+                selectionLasso.Points.Add(args.CurrentPoint.RawPosition);
+                selectionCanvas.Children.Add(selectionLasso);
             }
+        }
+
+        private void updateSelectionMenuDisplay() {
+            if (selectionBoundingBox.Top < this.ActualHeight / 2) {
+                Canvas.SetTop(selectionMenu, selectionBoundingBox.Bottom + 16);
+            } else {
+                Canvas.SetTop(selectionMenu, selectionBoundingBox.Top - 16 - selectionMenu.ActualHeight);
+            }
+            Canvas.SetLeft(selectionMenu, selectionBoundingBox.Left + selectionBoundingBox.Width / 2 - selectionMenu.ActualWidth / 2);
         }
 
         private void UnprocessedInput_PointerReleased(InkUnprocessedInput sender, Windows.UI.Core.PointerEventArgs args) {
@@ -149,37 +174,34 @@ namespace inkblaster {
                 selectionBoundingBox = inkCanvas.InkPresenter.StrokeContainer.SelectWithPolyLine(selectionLasso.Points);
                 if (!selectionBoundingBox.IsEmpty && selectionBoundingBox.Height != 0 && selectionBoundingBox.Width != 0) {
                     selectionCanvas.Children.Clear();
-                    selectionBoundingBox.X -= 8;
-                    selectionBoundingBox.Y -= 8;
-                    selectionBoundingBox.Width += 16;
-                    selectionBoundingBox.Height += 16;
-                    var r = new Rectangle() {
+                    selectionBoundingRect = new Rectangle() {
                         Stroke = new SolidColorBrush(Colors.DarkOrange),
                         StrokeThickness = 2,
                         StrokeDashArray = new DoubleCollection() { 4, 2 },
-                        Width = selectionBoundingBox.Width,
-                        Height = selectionBoundingBox.Height
+                        Width = selectionBoundingBox.Width + 16,
+                        Height = selectionBoundingBox.Height + 16
                     };
-                    Canvas.SetLeft(r, selectionBoundingBox.Left);
-                    Canvas.SetTop(r, selectionBoundingBox.Top);
-                    selectionCanvas.Children.Add(r);
+                    Canvas.SetLeft(selectionBoundingRect, selectionBoundingBox.Left - 8);
+                    Canvas.SetTop(selectionBoundingRect, selectionBoundingBox.Top - 8);
+                    selectionCanvas.Children.Add(selectionBoundingRect);
 
-                    if (selectionBoundingBox.Top < this.ActualHeight / 2) {
-                        Canvas.SetTop(selectionMenu, selectionBoundingBox.Bottom + 8);
-                    } else {
-                        Canvas.SetTop(selectionMenu, selectionBoundingBox.Top - 8 - selectionMenu.ActualHeight);
-                    }
-                    Canvas.SetLeft(selectionMenu, selectionBoundingBox.Left + selectionBoundingBox.Width / 2 - selectionMenu.ActualWidth / 2);
+                    updateSelectionMenuDisplay();
                     selectionMenu.Visibility = Visibility.Visible;
                 }
+            } else if(currentMode == EditMode.MoveSelection) {
+                currentMode = EditMode.Selection;
+                selectionMenu.Visibility = Visibility.Visible;
+                selectionBoundingBox =
+                    inkCanvas.InkPresenter.StrokeContainer.MoveSelected(new Point(Canvas.GetLeft(selectionBoundingRect) + 8 - selectionBoundingBox.Left,
+                        Canvas.GetTop(selectionBoundingRect) + 8 - selectionBoundingBox.Top));
+                updateSelectionMenuDisplay();
             }
         }
 
         private void UnprocessedInput_PointerHovered(InkUnprocessedInput sender, Windows.UI.Core.PointerEventArgs args) {
             if(args.CurrentPoint.Properties.IsBarrelButtonPressed && currentMode == EditMode.Inking) {
-                //menu.Translation = new Vector3((float)args.CurrentPoint.RawPosition.X - 32.0f, (float)args.CurrentPoint.RawPosition.Y - 32.0f, 0.0f);
-                Canvas.SetLeft(menu, args.CurrentPoint.RawPosition.X - 32.0f);
-                Canvas.SetTop(menu, args.CurrentPoint.RawPosition.Y - 32.0f);
+                Canvas.SetLeft(menu, args.CurrentPoint.RawPosition.X - 16.0f);
+                Canvas.SetTop(menu, args.CurrentPoint.RawPosition.Y - 16.0f);
                 menu.Visibility = Visibility.Visible;
             }
         }
@@ -228,6 +250,11 @@ namespace inkblaster {
             }
         }
 
+        private void moveSelection(object sender, RoutedEventArgs e) {
+            selectionMenu.Visibility = Visibility.Collapsed;
+            currentMode = EditMode.MoveSelection;
+        }
+
         private void copySelection(object sender, RoutedEventArgs e) {
             inkCanvas.InkPresenter.StrokeContainer.CopySelectedToClipboard();
             clearSelection();
@@ -248,9 +275,11 @@ namespace inkblaster {
         }
 
         public Symbol LassoIcon = (Symbol)0xEF20;
+        public Symbol MoveIcon = (Symbol)0xE759;
 
         private void topLevelCanvas_SizeChanged(object sender, SizeChangedEventArgs e) {
             inkCanvas.Width = this.ActualWidth;
+            inkScroller.Height = this.ActualHeight;
         }
     }
 }

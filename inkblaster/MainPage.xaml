@@ -1,0 +1,32 @@
+﻿<Page
+    x:Class="inkblaster.MainPage"
+    xmlns="http://schemas.microsoft.com/winfx/2006/xaml/presentation"
+    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+    xmlns:local="using:inkblaster"
+    xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+    xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+    mc:Ignorable="d"
+    Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+
+    <Grid>
+        <StackPanel Margin="360,180,360,180">
+            <TextBlock FontSize="48" FontStyle="Italic">Inkblaster</TextBlock>
+            <ListView x:Name="recentFilesList" ItemsSource="{x:Bind recentFiles}"
+                SelectionMode="None" IsItemClickEnabled="True" ItemClick="recentFilesList_ItemClick"
+                MinHeight="200" MaxHeight="600" BorderBrush="{ThemeResource ButtonBorderThemeBrush}" BorderThickness="1">
+                <ListView.ItemTemplate>
+                    <DataTemplate x:DataType="local:RecentFile">
+                        <StackPanel Margin="8,8,8,8">
+                            <TextBlock Text="{x:Bind name}"/>
+                            <TextBlock Text="{x:Bind path}" FontWeight="Light"/>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListView.ItemTemplate>
+            </ListView>
+            <StackPanel Margin="0,8,0,0" Orientation="Horizontal">
+                <Button Margin="0,0,0,0" Width="80" Click="newFile">New</Button>
+                <Button Margin="8,0,0,0" Width="80" Click="openFile">Open...</Button>
+            </StackPanel>
+        </StackPanel>
+    </Grid>
+</Page>

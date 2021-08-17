@@ -7,13 +7,33 @@
     xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
     mc:Ignorable="d"
     Background="{ThemeResource ApplicationPageBackgroundThemeBrush}">
+    <Page.Resources>
+        <BrushCollection x:Key="PenPalette">
+            <SolidColorBrush>White</SolidColorBrush>
+            <SolidColorBrush>LightGray</SolidColorBrush>
+            <SolidColorBrush>Red</SolidColorBrush>
+            <SolidColorBrush>OrangeRed</SolidColorBrush>
+            <SolidColorBrush>DarkOrange</SolidColorBrush>
+            <SolidColorBrush>Yellow</SolidColorBrush>
+            <SolidColorBrush>LightGreen</SolidColorBrush>
+            <SolidColorBrush>Green</SolidColorBrush>
+            <SolidColorBrush>CornflowerBlue</SolidColorBrush>
+            <SolidColorBrush>Blue</SolidColorBrush>
+            <SolidColorBrush>#ba0099</SolidColorBrush>
+            <SolidColorBrush>Magenta</SolidColorBrush>
+        </BrushCollection>
+    </Page.Resources>
 
     <Canvas x:Name="topLevelCanvas" SizeChanged="topLevelCanvas_SizeChanged">
-        <Button Style="{StaticResource NavigationBackButtonNormalStyle}" Canvas.ZIndex="1"
+        <StackPanel Orientation="Horizontal" Canvas.ZIndex="1">
+            <Button Style="{StaticResource NavigationBackButtonNormalStyle}" 
                 IsEnabled="{x:Bind Frame.CanGoBack, Mode=OneWay}" VerticalAlignment="Top" Click="returnToMain"/>
-        <StackPanel x:Name="menu" Canvas.ZIndex="1" Visibility="Visible" Canvas.Left="45" Canvas.Top="25">
+            <Button Style="{StaticResource NavigationBackButtonNormalStyle}" x:Name="fullScreenToggle" Content="&#xE740;"
+                 VerticalAlignment="Top" Click="toggleFullscreen"/>
+        </StackPanel>
+        <StackPanel x:Name="menu" Canvas.ZIndex="1" Visibility="Collapsed" Canvas.Left="45" Canvas.Top="25">
             <StackPanel Orientation="Horizontal" Margin="0,0,0,4">
-                <Button Margin="40,0,0,0" Click="closeMenu">
+                <Button Margin="32,0,0,0" Click="closeMenu">
                     <SymbolIcon Symbol="Back"/>
                 </Button>
                 <Button Margin="4,0,0,0" Click="paste">
@@ -25,17 +45,40 @@
                 <Button Margin="4,0,0,0" Click="saveFileButton">
                     <SymbolIcon Symbol="Save"/>
                 </Button>
+                <Button Margin="4,0,0,0">
+                    <SymbolIcon Symbol="Help"/>
+                </Button>
             </StackPanel>
-            <InkToolbar TargetInkCanvas="{x:Bind inkCanvas}" Loaded="InkToolbar_Loaded" x:Name="inkToolbar">
+            <InkToolbar TargetInkCanvas="{x:Bind inkCanvas}" Loaded="InkToolbar_Loaded" x:Name="inkToolbar" InitialControls="None">
+                <InkToolbarCustomPenButton SelectedStrokeWidth="2" Palette="{StaticResource PenPalette}">
+                    <Ellipse Width="16" Height="16" Fill="{x:Bind customPens[0].Brush, Mode=OneWay}"/>
+                    <InkToolbarCustomPenButton.ConfigurationContent>
+                        <InkToolbarPenConfigurationControl/>
+                    </InkToolbarCustomPenButton.ConfigurationContent>
+                </InkToolbarCustomPenButton>
+                <InkToolbarCustomPenButton SelectedStrokeWidth="2" Palette="{StaticResource PenPalette}">
+                    <Ellipse Width="16" Height="16" Fill="{x:Bind customPens[1].Brush, Mode=OneWay}"/>
+                    <InkToolbarCustomPenButton.ConfigurationContent>
+                        <InkToolbarPenConfigurationControl/>
+                    </InkToolbarCustomPenButton.ConfigurationContent>
+                </InkToolbarCustomPenButton>
+                <InkToolbarCustomPenButton SelectedStrokeWidth="2" Palette="{StaticResource PenPalette}">
+                    <Ellipse Width="16" Height="16" Fill="{x:Bind customPens[2].Brush, Mode=OneWay}"/>
+                    <InkToolbarCustomPenButton.ConfigurationContent>
+                        <InkToolbarPenConfigurationControl/>
+                    </InkToolbarCustomPenButton.ConfigurationContent>
+                </InkToolbarCustomPenButton>
                 <InkToolbarCustomToolButton x:Name="inkToolbarLassoTool" Click="activateSelectionMode">
                     <SymbolIcon Symbol="{x:Bind LassoIcon}"/>
                 </InkToolbarCustomToolButton>
+                <InkToolbarEraserButton/>
+                <InkToolbarStencilButton/>
             </InkToolbar>
         </StackPanel>
         <ScrollViewer x:Name="inkScroller">
             <Grid>
                 <Canvas Canvas.ZIndex="1">
-                    <StackPanel x:Name="selectionMenu" Canvas.ZIndex="1" Visibility="Visible" Orientation="Horizontal">
+                    <StackPanel x:Name="selectionMenu" Canvas.ZIndex="1" Visibility="Collapsed" Orientation="Horizontal">
                         <Button Margin="0,0,0,0" Click="moveSelection">
                             <SymbolIcon Symbol="{x:Bind MoveIcon}"/>
                         </Button>

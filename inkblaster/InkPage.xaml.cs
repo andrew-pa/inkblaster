@@ -19,6 +19,7 @@ using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
 using Windows.UI.Xaml.Shapes;
 using Windows.UI;
+using Windows.UI.ViewManagement;
 
 namespace inkblaster {
 
@@ -35,6 +36,8 @@ namespace inkblaster {
         Rect selectionBoundingBox = Rect.Empty;
         Rectangle selectionBoundingRect;
 
+        BasicCustomPen[] customPens;
+
         public InkPage() {
             this.InitializeComponent();
             inkCanvas.InkPresenter.InputProcessingConfiguration.RightDragAction = InkInputRightDragAction.LeaveUnprocessed;
@@ -45,9 +48,13 @@ namespace inkblaster {
             inkCanvas.InkPresenter.StrokesCollected += InkPresenter_StrokesCollected;
             inkCanvas.InkPresenter.StrokesErased += InkPresenter_StrokesErased;
             
-            autosaveTimer = new DispatcherTimer { Interval = new TimeSpan(0, 0, 0, 0, 500) };
+            autosaveTimer = new DispatcherTimer { Interval = new TimeSpan(0, 0, 0, 0, 250) };
             autosaveTimer.Tick += autosaveTimer_Tick;
             autosaveTimer.Start();
+
+            customPens = new BasicCustomPen[3];
+            for (int i = 0; i < customPens.Length; ++i)
+                customPens[i] = new BasicCustomPen();
         }
 
         private async void loadFile() {
@@ -120,6 +127,12 @@ namespace inkblaster {
                 saveFile(false);
                 canvasUnsaved = false;
             }
+
+            var ls = ApplicationData.Current.LocalSettings;
+            for(int i = 0; i < customPens.Length; ++i) {
+                var b = inkToolbar.Children[i] as InkToolbarCustomPenButton;
+                ls.Values["brush#" + i] = b.SelectedBrushIndex;
+            }
         }
 
         private void UnprocessedInput_PointerPressed(InkUnprocessedInput sender, Windows.UI.Core.PointerEventArgs args) {
@@ -127,7 +140,7 @@ namespace inkblaster {
                 if (selectionBoundingBox.IsEmpty) {
                     selectionLasso = new Polyline() {
                         Stroke = new SolidColorBrush(Colors.Orange),
-                        StrokeThickness = 2,
+                        StrokeThickness = 1,
                         StrokeDashArray = new DoubleCollection() { 5, 2 }
                     };
                     selectionLasso.Points.Add(args.CurrentPoint.RawPosition);
@@ -149,8 +162,8 @@ namespace inkblaster {
                 currentMode = EditMode.Selection;
                 inkToolbar.ActiveTool = inkToolbarLassoTool;
                 selectionLasso = new Polyline() {
-                    Stroke = new SolidColorBrush(Colors.Blue),
-                    StrokeThickness = 2,
+                    Stroke = new SolidColorBrush(Colors.Orange),
+                    StrokeThickness = 1,
                     StrokeDashArray = new DoubleCollection() { 5, 2 }
                 };
                 selectionLasso.Points.Add(args.CurrentPoint.RawPosition);
@@ -272,6 +285,14 @@ namespace inkblaster {
         }
 
         private void InkToolbar_Loaded(object sender, RoutedEventArgs e) {
+            var ls = ApplicationData.Current.LocalSettings;
+            for (int i = 0; i < customPens.Length; ++i) {
+                var b = inkToolbar.Children[i] as InkToolbarCustomPenButton;
+                b.CustomPen = customPens[i];
+                b.SelectedBrushIndex = (ls.Values["brush#" + i] as int?).GetValueOrDefault();
+                inkToolbar.ActiveTool = b;
+            }
+            inkToolbar.ActiveTool = inkToolbar.Children[0] as InkToolbarToolButton;
         }
 
         public Symbol LassoIcon = (Symbol)0xEF20;
@@ -280,6 +301,18 @@ namespace inkblaster {
         private void topLevelCanvas_SizeChanged(object sender, SizeChangedEventArgs e) {
             inkCanvas.Width = this.ActualWidth;
             inkScroller.Height = this.ActualHeight;
+        }
+
+        private void toggleFullscreen(object sender, RoutedEventArgs e) {
+            var cv = ApplicationView.GetForCurrentView();
+            if(cv.IsFullScreenMode) {
+                cv.ExitFullScreenMode();
+                fullScreenToggle.Content = "\xE740";
+            } else {
+                if (cv.TryEnterFullScreenMode()) {
+                    fullScreenToggle.Content = "\xE73F";
+                }
+            }
         }
     }
 }

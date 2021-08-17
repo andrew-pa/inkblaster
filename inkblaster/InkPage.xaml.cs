@@ -66,7 +66,7 @@ namespace inkblaster {
             inkCanvas.Height = inkCanvas.InkPresenter.StrokeContainer.BoundingRect.Height + 1024;
         }
 
-        private async void saveFile(bool openPicker = true) {
+        public async void saveFile(bool openPicker = true) {
             if(sourceFile == null) {
                 if (!openPicker) return;
                 Windows.Storage.Pickers.FileSavePicker savePicker = new Windows.Storage.Pickers.FileSavePicker();
@@ -85,12 +85,14 @@ namespace inkblaster {
                     return;
                 }
             }
+            autosaveTimer.Stop();
             using (IRandomAccessStream stream = await sourceFile.OpenAsync(Windows.Storage.FileAccessMode.ReadWrite)) {
                 using (var outputStream = stream.GetOutputStreamAt(0)) {
                     await inkCanvas.InkPresenter.StrokeContainer.SaveAsync(outputStream);
                     await outputStream.FlushAsync();
                 }
             }
+            autosaveTimer.Start();
         }
 
         private void clearSelection() {
@@ -105,7 +107,7 @@ namespace inkblaster {
             selectionBoundingRect = null;
             selectionMenu.Visibility = Visibility.Collapsed;
             currentMode = EditMode.Inking;
-            inkToolbar.ActiveTool = inkToolbar.GetToolButton(InkToolbarTool.BallpointPen);
+            inkToolbar.ActiveTool = inkToolbar.Children[0] as InkToolbarToolButton;
         }
 
         private bool canvasUnsaved = false;
@@ -123,6 +125,7 @@ namespace inkblaster {
         }
 
         private async void autosaveTimer_Tick(object sender, object e) {
+            if (!autosaveTimer.IsEnabled) return;
             if (canvasUnsaved) {
                 saveFile(false);
                 canvasUnsaved = false;

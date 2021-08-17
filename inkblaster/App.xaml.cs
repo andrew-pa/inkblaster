@@ -93,7 +93,11 @@ namespace inkblaster
         private void OnSuspending(object sender, SuspendingEventArgs e)
         {
             var deferral = e.SuspendingOperation.GetDeferral();
-            //TODO: Save application state and stop any background activity
+            var rootFrame = Window.Current.Content as Frame;
+            var page = rootFrame.Content as InkPage;
+            if(page != null) {
+                page.saveFile(false);
+            }
             deferral.Complete();
         }
     }

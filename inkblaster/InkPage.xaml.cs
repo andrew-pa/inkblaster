@@ -17,27 +17,43 @@ using Windows.UI.Xaml.Data;
 using Windows.UI.Xaml.Input;
 using Windows.UI.Xaml.Media;
 using Windows.UI.Xaml.Navigation;
+using Windows.UI.Xaml.Shapes;
+using Windows.UI;
 
 namespace inkblaster {
+
+    public enum EditMode {
+        Inking, Selection
+    }
+
     public sealed partial class InkPage : Page {
         StorageFile sourceFile;
         DispatcherTimer autosaveTimer;
+        EditMode currentMode = EditMode.Inking;
+
+        Polyline selectionLasso;
+        Rect selectionBoundingBox = Rect.Empty;
 
         public InkPage() {
             this.InitializeComponent();
             inkCanvas.InkPresenter.InputProcessingConfiguration.RightDragAction = InkInputRightDragAction.LeaveUnprocessed;
+            inkCanvas.InkPresenter.UnprocessedInput.PointerPressed += UnprocessedInput_PointerPressed;
+            inkCanvas.InkPresenter.UnprocessedInput.PointerMoved += UnprocessedInput_PointerMoved;
             inkCanvas.InkPresenter.UnprocessedInput.PointerHovered += UnprocessedInput_PointerHovered;
+            inkCanvas.InkPresenter.UnprocessedInput.PointerReleased += UnprocessedInput_PointerReleased;
             inkCanvas.InkPresenter.StrokesCollected += InkPresenter_StrokesCollected;
             inkCanvas.InkPresenter.StrokesErased += InkPresenter_StrokesErased;
+            
             autosaveTimer = new DispatcherTimer { Interval = new TimeSpan(0, 0, 0, 0, 500) };
             autosaveTimer.Tick += autosaveTimer_Tick;
             autosaveTimer.Start();
         }
 
         private async void loadFile() {
-            IRandomAccessStream stream = await sourceFile.OpenAsync(Windows.Storage.FileAccessMode.Read);
-            using (var inputStream = stream.GetInputStreamAt(0)) {
-                await inkCanvas.InkPresenter.StrokeContainer.LoadAsync(inputStream);
+            using (IRandomAccessStream stream = await sourceFile.OpenAsync(Windows.Storage.FileAccessMode.Read)) {
+                using (var inputStream = stream.GetInputStreamAt(0)) {
+                    await inkCanvas.InkPresenter.StrokeContainer.LoadAsync(inputStream);
+                }
             }
             inkCanvas.Height = inkCanvas.InkPresenter.StrokeContainer.BoundingRect.Height + 1024;
         }
@@ -61,21 +77,40 @@ namespace inkblaster {
                     return;
                 }
             }
-            IRandomAccessStream stream = await sourceFile.OpenAsync(Windows.Storage.FileAccessMode.ReadWrite);
-            using (var outputStream = stream.GetOutputStreamAt(0)) {
-                await inkCanvas.InkPresenter.StrokeContainer.SaveAsync(outputStream);
-                await outputStream.FlushAsync();
+            using (IRandomAccessStream stream = await sourceFile.OpenAsync(Windows.Storage.FileAccessMode.ReadWrite)) {
+                using (var outputStream = stream.GetOutputStreamAt(0)) {
+                    await inkCanvas.InkPresenter.StrokeContainer.SaveAsync(outputStream);
+                    await outputStream.FlushAsync();
+                }
             }
+        }
+
+        private void clearSelection() {
+            foreach(var stroke in inkCanvas.InkPresenter.StrokeContainer.GetStrokes()) {
+                stroke.Selected = false;
+            }
+            if(selectionCanvas.Children.Any()) {
+                selectionCanvas.Children.Clear();
+            }
+            selectionLasso = null;
+            selectionBoundingBox = Rect.Empty;
+            selectionMenu.Visibility = Visibility.Collapsed;
+            currentMode = EditMode.Inking;
+            inkToolbar.ActiveTool = inkToolbar.GetToolButton(InkToolbarTool.BallpointPen);
         }
 
         private bool canvasUnsaved = false;
 
         private void InkPresenter_StrokesErased(InkPresenter sender, InkStrokesErasedEventArgs args) {
             canvasUnsaved = true;
+            if (currentMode == EditMode.Selection)
+                clearSelection();
         }
 
         private void InkPresenter_StrokesCollected(InkPresenter sender, InkStrokesCollectedEventArgs args) {
             canvasUnsaved = true;
+            if (currentMode == EditMode.Selection)
+                clearSelection();
         }
 
         private async void autosaveTimer_Tick(object sender, object e) {
@@ -85,9 +120,66 @@ namespace inkblaster {
             }
         }
 
+        private void UnprocessedInput_PointerPressed(InkUnprocessedInput sender, Windows.UI.Core.PointerEventArgs args) {
+            if(currentMode == EditMode.Selection) {
+                if (selectionBoundingBox.IsEmpty) {
+                    selectionLasso = new Polyline() {
+                        Stroke = new SolidColorBrush(Colors.Orange),
+                        StrokeThickness = 2,
+                        StrokeDashArray = new DoubleCollection() { 5, 2 }
+                    };
+                    selectionLasso.Points.Add(args.CurrentPoint.RawPosition);
+                    selectionCanvas.Children.Add(selectionLasso);
+                } else {
+                    clearSelection();
+                }
+            }
+        }
+
+        private void UnprocessedInput_PointerMoved(InkUnprocessedInput sender, Windows.UI.Core.PointerEventArgs args) {
+            if (currentMode == EditMode.Selection) {
+                selectionLasso.Points.Add(args.CurrentPoint.RawPosition);
+            }
+        }
+
+        private void UnprocessedInput_PointerReleased(InkUnprocessedInput sender, Windows.UI.Core.PointerEventArgs args) {
+            if (currentMode == EditMode.Selection) {
+                selectionLasso.Points.Add(args.CurrentPoint.RawPosition);
+
+                selectionBoundingBox = inkCanvas.InkPresenter.StrokeContainer.SelectWithPolyLine(selectionLasso.Points);
+                if (!selectionBoundingBox.IsEmpty && selectionBoundingBox.Height != 0 && selectionBoundingBox.Width != 0) {
+                    selectionCanvas.Children.Clear();
+                    selectionBoundingBox.X -= 8;
+                    selectionBoundingBox.Y -= 8;
+                    selectionBoundingBox.Width += 16;
+                    selectionBoundingBox.Height += 16;
+                    var r = new Rectangle() {
+                        Stroke = new SolidColorBrush(Colors.DarkOrange),
+                        StrokeThickness = 2,
+                        StrokeDashArray = new DoubleCollection() { 4, 2 },
+                        Width = selectionBoundingBox.Width,
+                        Height = selectionBoundingBox.Height
+                    };
+                    Canvas.SetLeft(r, selectionBoundingBox.Left);
+                    Canvas.SetTop(r, selectionBoundingBox.Top);
+                    selectionCanvas.Children.Add(r);
+
+                    if (selectionBoundingBox.Top < this.ActualHeight / 2) {
+                        Canvas.SetTop(selectionMenu, selectionBoundingBox.Bottom + 8);
+                    } else {
+                        Canvas.SetTop(selectionMenu, selectionBoundingBox.Top - 8 - selectionMenu.ActualHeight);
+                    }
+                    Canvas.SetLeft(selectionMenu, selectionBoundingBox.Left + selectionBoundingBox.Width / 2 - selectionMenu.ActualWidth / 2);
+                    selectionMenu.Visibility = Visibility.Visible;
+                }
+            }
+        }
+
         private void UnprocessedInput_PointerHovered(InkUnprocessedInput sender, Windows.UI.Core.PointerEventArgs args) {
-            if(args.CurrentPoint.Properties.IsBarrelButtonPressed) {
-                menu.Translation = new Vector3((float)args.CurrentPoint.RawPosition.X - 32.0f, (float)args.CurrentPoint.RawPosition.Y - 32.0f, 0.0f);
+            if(args.CurrentPoint.Properties.IsBarrelButtonPressed && currentMode == EditMode.Inking) {
+                //menu.Translation = new Vector3((float)args.CurrentPoint.RawPosition.X - 32.0f, (float)args.CurrentPoint.RawPosition.Y - 32.0f, 0.0f);
+                Canvas.SetLeft(menu, args.CurrentPoint.RawPosition.X - 32.0f);
+                Canvas.SetTop(menu, args.CurrentPoint.RawPosition.Y - 32.0f);
                 menu.Visibility = Visibility.Visible;
             }
         }
@@ -118,6 +210,47 @@ namespace inkblaster {
             saveFile();
             Frame rootFrame = Window.Current.Content as Frame;
             rootFrame.Navigate(typeof(MainPage), null);
+        }
+
+        private void activateSelectionMode(object sender, RoutedEventArgs e) {
+            var button = (InkToolbarCustomToolButton)sender;
+            if (button.IsChecked.GetValueOrDefault()) {
+                menu.Visibility = Visibility.Collapsed;
+                currentMode = EditMode.Selection;
+            } else {
+                currentMode = EditMode.Inking;
+            }
+        }
+
+        private void paste(object sender, RoutedEventArgs e) {
+            if(inkCanvas.InkPresenter.StrokeContainer.CanPasteFromClipboard()) {
+                inkCanvas.InkPresenter.StrokeContainer.PasteFromClipboard(new Point(Canvas.GetLeft(menu), Canvas.GetTop(menu)));
+            }
+        }
+
+        private void copySelection(object sender, RoutedEventArgs e) {
+            inkCanvas.InkPresenter.StrokeContainer.CopySelectedToClipboard();
+            clearSelection();
+        }
+
+        private void cutSelection(object sender, RoutedEventArgs e) {
+            inkCanvas.InkPresenter.StrokeContainer.CopySelectedToClipboard();
+            inkCanvas.InkPresenter.StrokeContainer.DeleteSelected();
+            clearSelection();
+        }
+
+        private void deleteSelection(object sender, RoutedEventArgs e) {
+            inkCanvas.InkPresenter.StrokeContainer.DeleteSelected();
+            clearSelection();
+        }
+
+        private void InkToolbar_Loaded(object sender, RoutedEventArgs e) {
+        }
+
+        public Symbol LassoIcon = (Symbol)0xEF20;
+
+        private void topLevelCanvas_SizeChanged(object sender, SizeChangedEventArgs e) {
+            inkCanvas.Width = this.ActualWidth;
         }
     }
 }

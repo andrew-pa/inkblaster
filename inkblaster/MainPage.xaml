@@ -10,7 +10,7 @@
 
     <Grid>
         <StackPanel Margin="360,180,360,180">
-            <TextBlock FontSize="48" FontStyle="Italic">Inkblaster</TextBlock>
+            <TextBlock FontSize="48" FontStyle="Italic" Foreground="#FFA23AFF" FontWeight="Bold">Inkblaster</TextBlock>
             <ListView x:Name="recentFilesList" ItemsSource="{x:Bind recentFiles}"
                 SelectionMode="None" IsItemClickEnabled="True" ItemClick="recentFilesList_ItemClick"
                 MinHeight="200" MaxHeight="600" BorderBrush="{ThemeResource ButtonBorderThemeBrush}" BorderThickness="1">

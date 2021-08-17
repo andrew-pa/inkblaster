@@ -49,6 +49,8 @@ namespace inkblaster {
         }
 
         private async void newFile(object sender, RoutedEventArgs e) {
+            Frame rootFrame = Window.Current.Content as Frame;
+            rootFrame.Navigate(typeof(InkPage), null);
         }
 
         private async void openFile(object sender, RoutedEventArgs e) {
@@ -57,14 +59,16 @@ namespace inkblaster {
             picker.SuggestedStartLocation = PickerLocationId.DocumentsLibrary;
             StorageFile file = await picker.PickSingleFileAsync();
             if (file != null) {
-                Windows.Storage.AccessCache.StorageApplicationPermissions.MostRecentlyUsedList.Add(file, "");
+                Frame rootFrame = Window.Current.Content as Frame;
+                rootFrame.Navigate(typeof(InkPage), file);
             } else {
                 // The file picker was dismissed with no file selected to save
             }
         }
 
         private void recentFilesList_ItemClick(object sender, ItemClickEventArgs e) {
-
+            Frame rootFrame = Window.Current.Content as Frame;
+            rootFrame.Navigate(typeof(InkPage), (e.ClickedItem as RecentFile).file);
         }
     }
 }
